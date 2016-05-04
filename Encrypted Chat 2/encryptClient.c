@@ -40,13 +40,16 @@ char *dup_msg(char *msg);
 extern char *decryption_1(char *msg, unsigned int msg_len);
 extern char *decryption_2(char *msg, unsigned int msg_len);
 extern char *decryption_3(char *msg, unsigned int msg_len);
-extern char *encryption(char * msg, unsigned int msg_len);
+extern char *encryption(char *msg, unsigned int msg_len);
 
 ///preprocessed methods
 void error(char *msg){
     perror(msg);
     exit(0);
 }
+
+///global variables
+int exit_flag = 1;
 
 /** @param : char *s - string to be stripped
  *  @def : This method removes carriage return and newline characters from
@@ -104,18 +107,31 @@ int main(int argc, char *argv[]){
     client_t *cli = (client_t *)malloc(sizeof(client_t));
     cli->connfd = sockfd;
     pthread_create(&threadID, NULL, (void *) &read_message, cli);
-    while(1){
+
+    while(exit_flag){
         bzero(buffer, 256);
         fgets(buffer, 255, stdin);
         int msg_size = strlen(buffer);
+        char *temp = dup_msg(buffer);
         encryption(buffer, msg_size);
         strip_newline(buffer);
-        if((n = write(sockfd, buffer, strlen(buffer))) < 0){
+
+        if(strncmp("_exit!", temp, 6) != 0){
+            if((n = write(sockfd, buffer, strlen(buffer))) < 0){
                 error("ERROR writing to socket");
+            }
+        }else{
+            exit_flag = 0;
+            printf("CHAT EXITED\n");
+            pthread_join(threadID,NULL);
         }
         bzero(buffer, 256);
+        free(temp);
     }
 
+
+
+    exit(EXIT_SUCCESS);
     return 0;
 
 }
@@ -129,14 +145,14 @@ int main(int argc, char *argv[]){
 void read_message(void *client){
     client_t *cli = (client_t *) client;
     int nsfd = cli->connfd;
-    while(1){
+    while(exit_flag){
         char buffer[256];
         int n;
         bzero(buffer, 256);
         if((n = read(nsfd, buffer, 255)) < 0){
             error("ERROR reading from socket");
         }else{
-            int size = strlen(buffer);
+            int size = strnlen(buffer, 255);
             char *temp = decrypt(buffer, size);
             temp = rem_header(temp);
             strip_newline(temp);

@@ -123,7 +123,6 @@ int main(int argc, char *argv[]){
         }else{
             exit_flag = 0;
             printf("CHAT EXITED\n");
-            pthread_join(threadID,NULL);
         }
         bzero(buffer, 256);
         free(temp);

@@ -123,14 +123,14 @@ int main(int argc, char *argv[]){
         }else{
             exit_flag = 0;
             printf("CHAT EXITED\n");
+            exit(EXIT_SUCCESS);         // only clean way to exit
         }
         bzero(buffer, 256);
         free(temp);
     }
 
+    exit(EXIT_FAILURE);     //all other exits are incorrect
 
-
-    exit(EXIT_SUCCESS);
     return 0;
 
 }

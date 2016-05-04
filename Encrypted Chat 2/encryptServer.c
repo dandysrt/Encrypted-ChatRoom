@@ -29,6 +29,7 @@
 ///Structs:
 typedef struct{
     struct sockaddr_in addr;
+    pthread_t c_threadID;
     int connfd;
     int uid;
     char name[32];
@@ -79,7 +80,7 @@ void strip_newline(char *s){
 int main(int argc, char *argv[]){
 
     unsigned int sockfd, newsockfd, portno, clilen;
-    pthread_t threadID;                                             //thread id
+    //pthread_t threadID;                                             //thread id
     struct sockaddr_in serv_addr, cli_addr;
 
 
@@ -115,13 +116,14 @@ int main(int argc, char *argv[]){
         if((newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &clilen)) < 0){
             error("ERROR on accept");
         }else{
+            pthread_t threadID;
             client_t *cli = (client_t *)malloc(sizeof(client_t));
+            cli->c_threadID = threadID;
             cli->addr = cli_addr;
             cli->connfd = newsockfd;
             cli->uid = uid++;
             sprintf(cli->name, "%d", cli->uid);
             queue_add(cli);
-            pthread_create(&threadID, NULL, (void *) &handle_client, cli);
         }
     }
 
@@ -240,6 +242,7 @@ char *dequeue(){
  *  @return : void
  **/
 void queue_add(client_t *cli){
+    pthread_create(&cli->c_threadID, NULL, (void *) &handle_client, cli);
     pthread_mutex_lock(&mtx);
         if(client_count < MAX_CLIENTS){
             clients[client_count] = cli;

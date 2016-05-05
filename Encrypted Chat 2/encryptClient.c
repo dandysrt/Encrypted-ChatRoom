@@ -121,6 +121,9 @@ int main(int argc, char *argv[]){
                 error("ERROR writing to socket");
             }
         }else{
+            if((n = write(sockfd, buffer, strlen(buffer))) < 0){
+                error("ERROR writing to socket");
+            }
             exit_flag = 0;
             printf("CHAT EXITED\n");
             exit(EXIT_SUCCESS);         // only clean way to exit

@@ -14,6 +14,7 @@
 #include <netinet/in.h>
 #include <sys/wait.h>
 #include <strings.h>
+#include <string.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
@@ -32,7 +33,8 @@ typedef struct{
     pthread_t c_threadID;
     int connfd;
     int uid;
-    char name[32];
+    int status;
+    char name[32]; //not in use yet
 }client_t;
 
 ///Prototypes:
@@ -44,6 +46,7 @@ void queue(char *msg);
 void queue_add(client_t *cl);
 void queue_delete(int uid);
 char *add_header(char *msg);
+char *dup_msg(char *msg);
 
 ///ASM Prototypes:
 extern char *encryption_1(char *msg, unsigned int msg_len);
@@ -122,8 +125,17 @@ int main(int argc, char *argv[]){
             cli->addr = cli_addr;
             cli->connfd = newsockfd;
             cli->uid = uid++;
+            cli->status = 0;
             sprintf(cli->name, "%d", cli->uid);
             queue_add(cli);
+        }
+
+        for(int i = 0; i < client_count; i++){
+            if(clients[i]->status){
+                pthread_join(clients[i]->c_threadID, NULL);
+                close(clients[i]->connfd);
+                client_count--;
+            }
         }
     }
 
@@ -142,19 +154,28 @@ void handle_client(void *client){
     char buffer[256];//--------------------------------buffer for sending-receiving messages
     int n;
     bzero(buffer, 256);
-    while(1){
-
-        if((n = read(nsfd, buffer, 255)) < 0){
-            error("ERROR reading from socket");
+    int exit_flag = 0;
+    char *temp;
+    while(!exit_flag){
+        if(exit_flag == 0){
+            if((n = read(nsfd, buffer, 255)) < 0){
+                error("ERROR reading from socket");
+            }
+            temp = dup_msg(buffer);
+            if(strncmp("_exit!", temp, 6) == 0){
+                exit_flag = 1;
+                cli->status = 1;
+            }else{
+                printf("read: %s\n", buffer);
+                strip_newline(buffer);
+                strcpy(buffer,add_header(buffer));
+                queue(buffer);
+                handle_send(client);
+                bzero(buffer, 256);
+            }
+            free(temp);
         }
-        printf("read: %s\n", buffer);
-        strip_newline(buffer);
-        strcpy(buffer,add_header(buffer));
-        queue(buffer);
-        handle_send(client);
-        bzero(buffer, 256);
     }
-
 }
 
 /**
@@ -291,4 +312,22 @@ char *add_header(char *msg){
     strcpy(header, "HZQ");
     printf("DEBUG ADD_HDR\n");
     return strcat(header, msg);
+}
+
+/**
+ *  @param : char *msg - received message
+ *  @def : This method duplicates and returns the string value provided. It also dynamically sizes
+ *  the returned string by appending the null terminating character to the end.
+ *  This message was written since strcat/strncat do not function the way the program needs.
+ *  @return : pointer toward duplicated string is returned upon completion
+ *  @note   : >>>MEMORY LEAK<<< malloc() called with no associated free() - errors encountered when called
+ **/
+char *dup_msg(char *msg){
+    char *temp = malloc(strlen(msg) + 1);
+    int count = strlen(msg);
+    for(int i = 0; i < count; i++){
+        temp[i] = msg[i];
+        temp[i + 1] = '\0';
+    }
+    return temp;
 }
